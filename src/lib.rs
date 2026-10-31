@@ -1,8 +1,10 @@
-pub mod api;
+#![recursion_limit = "512"]
+
 pub mod cli;
 pub mod config;
 pub mod error;
 pub mod grpc;
+pub mod mcp;
 pub mod models;
 pub mod schema;
 pub mod store;

@@ -3,4 +3,4 @@ pub mod pb {
 }
 
 pub mod service;
-pub use service::GrpcUserProvisioningService;
+pub use service::{GrpcSolidService, GrpcUserProvisioningService};

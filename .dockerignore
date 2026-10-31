@@ -1,0 +1,7 @@
+target/
+.git/
+.gitignore
+.github/
+tests/
+config/local.toml
+*.md

@@ -3,7 +3,7 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(
     name = "solid-api",
-    about = "SolidFlow API & User Provisioning Service",
+    about = "SolidFlow gRPC Management Service & Model Context Protocol (MCP) Server",
     version
 )]
 pub struct Cli {
@@ -27,13 +27,16 @@ pub struct Cli {
     pub password: Option<String>,
 
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Start the HTTP REST and gRPC API servers
+    /// Start the Tonic gRPC API server (default if no subcommand is given)
     Serve(ServeArgs),
+
+    /// Start the Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio
+    Mcp,
 
     /// Schema management
     Schema {
@@ -58,15 +61,46 @@ pub enum Commands {
         #[command(subcommand)]
         cmd: DbUserCommands,
     },
+
+    /// Dashboard management
+    Dashboard {
+        #[command(subcommand)]
+        cmd: DashboardCommands,
+    },
+
+    /// Workflow management
+    Workflow {
+        #[command(subcommand)]
+        cmd: WorkflowCommands,
+    },
+
+    /// Connection profile management
+    Connection {
+        #[command(subcommand)]
+        cmd: ConnectionCommands,
+    },
+
+    /// Proto registry management
+    Proto {
+        #[command(subcommand)]
+        cmd: ProtoCommands,
+    },
+
+    /// Trusted CA certificate management
+    Ca {
+        #[command(subcommand)]
+        cmd: CaCommands,
+    },
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Default, Clone)]
 pub struct ServeArgs {
-    #[arg(long, help = "HTTP server bind address")]
-    pub http_addr: Option<String>,
-
-    #[arg(long, help = "gRPC server bind address")]
-    pub grpc_addr: Option<String>,
+    #[arg(
+        long,
+        alias = "grpc-addr",
+        help = "gRPC server bind address (e.g. 0.0.0.0:50051)"
+    )]
+    pub listen_addr: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -228,4 +262,72 @@ pub enum DbUserCommands {
         #[arg(help = "DB Username")]
         username: String,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum DashboardCommands {
+    /// List dashboards
+    List,
+    /// Get dashboard by ID
+    Get { id: String },
+    /// Delete dashboard by ID
+    Delete { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum WorkflowCommands {
+    /// List workflows
+    List,
+    /// Get workflow by ID
+    Get { id: String },
+    /// Delete workflow by ID
+    Delete { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConnectionCommands {
+    /// List connections
+    List,
+    /// Get connection by ID
+    Get { id: String },
+    /// Delete connection by ID
+    Delete { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ProtoCommands {
+    /// List proto files
+    List,
+    /// Get proto file by ID or name
+    Get { id: String },
+    /// Upload a proto file from disk
+    Upload {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        file: String,
+        #[arg(long)]
+        owner: Option<String>,
+    },
+    /// Delete proto file by ID
+    Delete { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CaCommands {
+    /// List trusted CA certificates
+    List,
+    /// Get trusted CA certificate by ID or name
+    Get { id: String },
+    /// Upload a PEM CA certificate from disk
+    Upload {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        file: String,
+        #[arg(long)]
+        owner: Option<String>,
+    },
+    /// Delete trusted CA certificate by ID
+    Delete { id: String },
 }

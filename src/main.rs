@@ -1,15 +1,21 @@
 use clap::Parser;
-use solid_api::api::build_app;
 use solid_api::cli::{
-    Cli, Commands, DbUserCommands, GroupCommands, SchemaCommands, ServeArgs, UserCommands,
+    CaCommands, Cli, Commands, ConnectionCommands, DashboardCommands, DbUserCommands,
+    GroupCommands, ProtoCommands, SchemaCommands, ServeArgs, UserCommands, WorkflowCommands,
 };
 use solid_api::config::AppConfig;
 use solid_api::error::AppError;
-use solid_api::grpc::GrpcUserProvisioningService;
+use solid_api::grpc::GrpcSolidService;
+use solid_api::grpc::pb::connection_service_server::ConnectionServiceServer;
+use solid_api::grpc::pb::dashboard_service_server::DashboardServiceServer;
+use solid_api::grpc::pb::database_service_server::DatabaseServiceServer;
+use solid_api::grpc::pb::registry_service_server::RegistryServiceServer;
 use solid_api::grpc::pb::user_provisioning_service_server::UserProvisioningServiceServer;
+use solid_api::grpc::pb::workflow_service_server::WorkflowServiceServer;
+use solid_api::mcp::run_mcp_stdio;
 use solid_api::models::{
     AssignGroupMemberRequest, CreateGroupRequest, GroupRight, PlatformRole, ProvisionDbUserRequest,
-    ProvisionUserRequest,
+    ProvisionUserRequest, UploadCaCertInput, UploadProtoInput,
 };
 use solid_api::schema::ensure_schema;
 use solid_api::store::Store;
@@ -18,7 +24,9 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Log to stderr so stdout remains clean for `solid-api mcp` JSON-RPC 2.0 communication
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| EnvFilter::new("info,solid_api=debug")),
@@ -46,10 +54,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let store = Store::connect(&config.surrealdb).await?;
+    let command = cli
+        .command
+        .unwrap_or_else(|| Commands::Serve(ServeArgs::default()));
 
-    match cli.command {
+    match command {
         Commands::Serve(serve_args) => {
             run_server(store, config, serve_args).await?;
+        }
+        Commands::Mcp => {
+            tracing::info!("Starting solid-api MCP server over stdio");
+            run_mcp_stdio(store).await?;
         }
         Commands::Schema { cmd } => match cmd {
             SchemaCommands::Init => {
@@ -205,6 +220,104 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Database user '{username}' removed.");
             }
         },
+        Commands::Dashboard { cmd } => match cmd {
+            DashboardCommands::List => {
+                let list = store.list_dashboards(None, false).await?;
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            }
+            DashboardCommands::Get { id } => {
+                let item = store.get_dashboard(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            DashboardCommands::Delete { id } => {
+                let deleted = store.delete_dashboard(&id).await?;
+                println!("{}", serde_json::json!({ "deleted": deleted }));
+            }
+        },
+        Commands::Workflow { cmd } => match cmd {
+            WorkflowCommands::List => {
+                let list = store.list_workflows(None).await?;
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            }
+            WorkflowCommands::Get { id } => {
+                let item = store.get_workflow(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            WorkflowCommands::Delete { id } => {
+                let deleted = store.delete_workflow(&id).await?;
+                println!("{}", serde_json::json!({ "deleted": deleted }));
+            }
+        },
+        Commands::Connection { cmd } => match cmd {
+            ConnectionCommands::List => {
+                let list = store.list_connections(None).await?;
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            }
+            ConnectionCommands::Get { id } => {
+                let item = store.get_connection(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            ConnectionCommands::Delete { id } => {
+                let deleted = store.delete_connection(&id).await?;
+                println!("{}", serde_json::json!({ "deleted": deleted }));
+            }
+        },
+        Commands::Proto { cmd } => match cmd {
+            ProtoCommands::List => {
+                let list = store.list_protos(None).await?;
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            }
+            ProtoCommands::Get { id } => {
+                let item = store.get_proto(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            ProtoCommands::Upload { name, file, owner } => {
+                let content = std::fs::read_to_string(&file)?;
+                let item = store
+                    .upload_proto(UploadProtoInput {
+                        id: None,
+                        name,
+                        content,
+                        owner,
+                        visibility: Some("private".into()),
+                        tags: Vec::new(),
+                    })
+                    .await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            ProtoCommands::Delete { id } => {
+                let deleted = store.delete_proto(&id).await?;
+                println!("{}", serde_json::json!({ "deleted": deleted }));
+            }
+        },
+        Commands::Ca { cmd } => match cmd {
+            CaCommands::List => {
+                let list = store.list_ca_certs().await?;
+                println!("{}", serde_json::to_string_pretty(&list)?);
+            }
+            CaCommands::Get { id } => {
+                let item = store.get_ca_cert(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            CaCommands::Upload { name, file, owner } => {
+                let content = std::fs::read_to_string(&file)?;
+                let item = store
+                    .upload_ca_cert(UploadCaCertInput {
+                        id: None,
+                        name,
+                        content,
+                        owner,
+                        visibility: Some("private".into()),
+                        tags: Vec::new(),
+                    })
+                    .await?;
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            }
+            CaCommands::Delete { id } => {
+                let deleted = store.delete_ca_cert(&id).await?;
+                println!("{}", serde_json::json!({ "deleted": deleted }));
+            }
+        },
     }
 
     Ok(())
@@ -215,44 +328,22 @@ async fn run_server(
     config: AppConfig,
     args: ServeArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let http_addr_str = args.http_addr.unwrap_or(config.server.http_addr);
-    let grpc_addr_str = args.grpc_addr.unwrap_or(config.server.grpc_addr);
+    let addr_str = args.listen_addr.unwrap_or(config.server.listen_addr);
+    let addr: SocketAddr = addr_str.parse()?;
 
-    let http_addr: SocketAddr = http_addr_str.parse()?;
-    let grpc_addr: SocketAddr = grpc_addr_str.parse()?;
+    tracing::info!("Starting solid-api Tonic gRPC server on {addr}");
 
-    tracing::info!("Starting solid-api REST server on http://{http_addr}");
-    tracing::info!("Starting solid-api gRPC server on {grpc_addr}");
+    let svc = GrpcSolidService::new(store);
 
-    let app = build_app(store.clone());
-    let listener = tokio::net::TcpListener::bind(http_addr).await?;
-
-    let http_server = async move {
-        axum::serve(listener, app).await?;
-        Ok::<(), Box<dyn std::error::Error>>(())
-    };
-
-    let grpc_service = GrpcUserProvisioningService::new(store);
-    let grpc_server = async move {
-        tonic::transport::Server::builder()
-            .add_service(UserProvisioningServiceServer::new(grpc_service))
-            .serve(grpc_addr)
-            .await?;
-        Ok::<(), Box<dyn std::error::Error>>(())
-    };
-
-    tokio::select! {
-        res = http_server => {
-            if let Err(e) = res {
-                tracing::error!("HTTP server error: {e}");
-            }
-        }
-        res = grpc_server => {
-            if let Err(e) = res {
-                tracing::error!("gRPC server error: {e}");
-            }
-        }
-    }
+    tonic::transport::Server::builder()
+        .add_service(UserProvisioningServiceServer::new(svc.clone()))
+        .add_service(DashboardServiceServer::new(svc.clone()))
+        .add_service(WorkflowServiceServer::new(svc.clone()))
+        .add_service(ConnectionServiceServer::new(svc.clone()))
+        .add_service(RegistryServiceServer::new(svc.clone()))
+        .add_service(DatabaseServiceServer::new(svc))
+        .serve(addr)
+        .await?;
 
     Ok(())
 }

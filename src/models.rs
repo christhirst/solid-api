@@ -5,6 +5,22 @@ fn default_idp_role() -> PlatformRole {
     PlatformRole::Viewer
 }
 
+fn default_visibility() -> String {
+    "private".to_string()
+}
+
+fn default_direction() -> String {
+    "td".to_string()
+}
+
+fn default_empty_array() -> serde_json::Value {
+    serde_json::Value::Array(Vec::new())
+}
+
+fn default_empty_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, SurrealValue, Default,
 )]
@@ -256,7 +272,145 @@ pub struct EffectiveAccessContext {
     pub is_admin: bool,
 }
 
-// Request and Response payloads
+// ============================================================================
+// SolidFlow Resource Records (Dashboards, Workflows, Connections, Registry, DB)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct DashboardRecord {
+    #[serde(default)]
+    pub record_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
+    #[serde(rename = "isPublic", default)]
+    pub is_public: bool,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default = "default_empty_array")]
+    pub buttons: serde_json::Value,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct WorkflowRecord {
+    #[serde(default)]
+    pub record_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<String>,
+    #[serde(
+        rename = "serverAddress",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub server_address: Option<String>,
+    #[serde(rename = "useTls", default)]
+    pub use_tls: bool,
+    #[serde(default = "default_direction")]
+    pub direction: String,
+    #[serde(default = "default_visibility")]
+    pub visibility: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default = "default_empty_array")]
+    pub steps: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph: Option<serde_json::Value>,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct ConnectionRecord {
+    #[serde(default)]
+    pub record_id: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub conn_type: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default = "default_visibility")]
+    pub visibility: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default = "default_empty_object")]
+    pub config: serde_json::Value,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct ProtoFileRecord {
+    #[serde(default)]
+    pub record_id: String,
+    pub name: String,
+    pub content: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default = "default_visibility")]
+    pub visibility: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct CaCertRecord {
+    #[serde(default)]
+    pub record_id: String,
+    pub name: String,
+    pub content: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default = "default_visibility")]
+    pub visibility: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+pub struct DatabaseMetaRecord {
+    pub name: String,
+    #[serde(default)]
+    pub owner: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+// ============================================================================
+// Request Payloads
+// ============================================================================
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProvisionUserRequest {
@@ -303,4 +457,138 @@ pub struct ProvisionDbUserRequest {
     pub username: String,
     pub password: String,
     pub roles: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateDashboardInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub slug: Option<String>,
+    pub is_public: bool,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub buttons_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateDashboardInput {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub slug: Option<String>,
+    pub is_public: Option<bool>,
+    pub tags: Option<Vec<String>>,
+    pub buttons_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateWorkflowInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub schedule: Option<String>,
+    pub server_address: Option<String>,
+    pub use_tls: bool,
+    pub direction: Option<String>,
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub steps_json: Option<String>,
+    pub graph_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateWorkflowInput {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub schedule: Option<String>,
+    pub server_address: Option<String>,
+    pub use_tls: Option<bool>,
+    pub direction: Option<String>,
+    pub visibility: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub steps_json: Option<String>,
+    pub graph_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateConnectionInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub conn_type: String,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub config_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateConnectionInput {
+    pub name: Option<String>,
+    pub conn_type: Option<String>,
+    pub description: Option<String>,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub config_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UploadProtoInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub content: String,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateProtoInput {
+    pub name: Option<String>,
+    pub content: Option<String>,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UploadCaCertInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub content: String,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateCaCertInput {
+    pub name: Option<String>,
+    pub content: Option<String>,
+    pub owner: Option<String>,
+    pub visibility: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateDatabaseInput {
+    pub name: String,
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct UpdateDatabaseMetaInput {
+    pub owner: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
