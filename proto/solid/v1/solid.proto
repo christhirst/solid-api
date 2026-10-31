@@ -1,0 +1,592 @@
+syntax = "proto3";
+
+package solid.v1;
+
+// ============================================================================
+// Common Messages
+// ============================================================================
+
+message Empty {}
+
+message DeleteResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message InitSchemaResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============================================================================
+// 1. UserProvisioningService (Users, Platform Roles, Spaces/Groups, DB Users)
+// ============================================================================
+
+message UserProfileMsg {
+  string sub = 1;
+  string username = 2;
+  string name = 3;
+  string email = 4;
+  string idp_role = 5;
+  string role_override = 6;
+  string simulated_role = 7;
+  string namespace = 8;
+  repeated string group_grants = 9;
+  repeated string disabled_groups = 10;
+  bool disable_owner_bypass = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message GroupNamespaceMsg {
+  string name = 1;
+  string parent = 2;
+  string owner = 3;
+  string description = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message GroupMemberMsg {
+  string group = 1;
+  string username = 2;
+  string display_name = 3;
+  string user_sub = 4;
+  repeated string rights = 5;
+  string assigned_by = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message PlatformCapabilitiesMsg {
+  bool can_access_library = 1;
+  bool can_edit_dashboards = 2;
+  bool can_manage_workflows = 3;
+  bool can_use_requests = 4;
+  bool can_manage_connections = 5;
+  bool can_manage_cas = 6;
+  bool can_manage_protos = 7;
+  bool can_manage_database = 8;
+  bool can_manage_groups = 9;
+}
+
+message EffectiveAccessContextMsg {
+  string sub = 1;
+  string username = 2;
+  string email = 3;
+  string idp_role = 4;
+  string platform_role = 5;
+  string simulated_role = 6;
+  PlatformCapabilitiesMsg capabilities = 7;
+  repeated string group_grants = 8;
+  bool is_admin = 9;
+}
+
+message DbUserMsg {
+  string username = 1;
+  repeated string roles = 2;
+  string level = 3;
+}
+
+message ProvisionUserRequest {
+  string sub = 1;
+  string username = 2;
+  string name = 3;
+  string email = 4;
+  string role = 5;
+  string namespace = 6;
+}
+
+message GetUserRequest {
+  string sub_or_username = 1;
+}
+
+message ListUsersRequest {
+  int32 limit = 1;
+}
+
+message ListUsersResponse {
+  repeated UserProfileMsg users = 1;
+}
+
+message UpdateUserRequest {
+  string sub_or_username = 1;
+  optional string name = 2;
+  optional string email = 3;
+  optional string namespace = 4;
+  optional string role = 5;
+  optional string role_override = 6;
+}
+
+message AssignPlatformRoleRequest {
+  string sub_or_username = 1;
+  string role = 2;
+  bool as_override = 3;
+}
+
+message DeleteUserRequest {
+  string sub_or_username = 1;
+}
+
+message CreateGroupRequest {
+  string name = 1;
+  string owner = 2;
+  string description = 3;
+}
+
+message GetGroupRequest {
+  string name = 1;
+}
+
+message ListGroupsRequest {}
+
+message ListGroupsResponse {
+  repeated GroupNamespaceMsg groups = 1;
+}
+
+message DeleteGroupRequest {
+  string name = 1;
+}
+
+message AssignGroupMemberRequest {
+  string group_name = 1;
+  string username = 2;
+  repeated string rights = 3;
+  string assigned_by = 4;
+}
+
+message RemoveGroupMemberRequest {
+  string group_name = 1;
+  string username = 2;
+}
+
+message ListGroupMembersRequest {
+  string group_name = 1;
+}
+
+message ListGroupMembersResponse {
+  repeated GroupMemberMsg members = 1;
+}
+
+message ListUserGroupsRequest {
+  string sub_or_username = 1;
+}
+
+message ProvisionDbUserRequest {
+  string username = 1;
+  string password = 2;
+  repeated string roles = 3;
+}
+
+message ListDbUsersRequest {}
+
+message ListDbUsersResponse {
+  repeated DbUserMsg users = 1;
+}
+
+message RemoveDbUserRequest {
+  string username = 1;
+}
+
+service UserProvisioningService {
+  rpc InitSchema(Empty) returns (InitSchemaResponse);
+
+  rpc ProvisionUser(ProvisionUserRequest) returns (UserProfileMsg);
+  rpc GetUser(GetUserRequest) returns (UserProfileMsg);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UserProfileMsg);
+  rpc AssignPlatformRole(AssignPlatformRoleRequest) returns (UserProfileMsg);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteResponse);
+  rpc GetEffectiveAccess(GetUserRequest) returns (EffectiveAccessContextMsg);
+
+  rpc CreateGroup(CreateGroupRequest) returns (GroupNamespaceMsg);
+  rpc GetGroup(GetGroupRequest) returns (GroupNamespaceMsg);
+  rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse);
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteResponse);
+  rpc AssignGroupMember(AssignGroupMemberRequest) returns (GroupMemberMsg);
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (DeleteResponse);
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (ListGroupMembersResponse);
+  rpc ListUserGroups(ListUserGroupsRequest) returns (ListGroupMembersResponse);
+
+  rpc ProvisionDbUser(ProvisionDbUserRequest) returns (DbUserMsg);
+  rpc ListDbUsers(ListDbUsersRequest) returns (ListDbUsersResponse);
+  rpc RemoveDbUser(RemoveDbUserRequest) returns (DeleteResponse);
+}
+
+// ============================================================================
+// 2. DashboardService
+// ============================================================================
+
+message DashboardMsg {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner = 4;
+  string namespace = 5;
+  string slug = 6;
+  bool is_public = 7;
+  repeated string tags = 8;
+  string buttons_json = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message CreateDashboardRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner = 4;
+  string slug = 5;
+  bool is_public = 6;
+  repeated string tags = 7;
+  string buttons_json = 8;
+}
+
+message GetDashboardRequest {
+  string id = 1;
+}
+
+message ListDashboardsRequest {
+  string query = 1;
+  bool published_only = 2;
+}
+
+message ListDashboardsResponse {
+  repeated DashboardMsg dashboards = 1;
+}
+
+message UpdateDashboardRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string owner = 4;
+  optional string slug = 5;
+  optional bool is_public = 6;
+  repeated string tags = 7;
+  bool update_tags = 8;
+  optional string buttons_json = 9;
+}
+
+message DeleteDashboardRequest {
+  string id = 1;
+}
+
+message SaveUserNamespaceRequest {
+  string sub_or_username = 1;
+  string namespace = 2;
+}
+
+message SaveUserNamespaceResponse {
+  string sub = 1;
+  string namespace = 2;
+}
+
+service DashboardService {
+  rpc CreateDashboard(CreateDashboardRequest) returns (DashboardMsg);
+  rpc GetDashboard(GetDashboardRequest) returns (DashboardMsg);
+  rpc ListDashboards(ListDashboardsRequest) returns (ListDashboardsResponse);
+  rpc UpdateDashboard(UpdateDashboardRequest) returns (DashboardMsg);
+  rpc DeleteDashboard(DeleteDashboardRequest) returns (DeleteResponse);
+  rpc SaveUserNamespace(SaveUserNamespaceRequest) returns (SaveUserNamespaceResponse);
+}
+
+// ============================================================================
+// 3. WorkflowService
+// ============================================================================
+
+message WorkflowMsg {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner = 4;
+  string schedule = 5;
+  string server_address = 6;
+  bool use_tls = 7;
+  string direction = 8;
+  string visibility = 9;
+  repeated string tags = 10;
+  string steps_json = 11;
+  string graph_json = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message CreateWorkflowRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner = 4;
+  string schedule = 5;
+  string server_address = 6;
+  bool use_tls = 7;
+  string direction = 8;
+  string visibility = 9;
+  repeated string tags = 10;
+  string steps_json = 11;
+  string graph_json = 12;
+}
+
+message GetWorkflowRequest {
+  string id = 1;
+}
+
+message ListWorkflowsRequest {
+  string query = 1;
+}
+
+message ListWorkflowsResponse {
+  repeated WorkflowMsg workflows = 1;
+}
+
+message UpdateWorkflowRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string owner = 4;
+  optional string schedule = 5;
+  optional string server_address = 6;
+  optional bool use_tls = 7;
+  optional string direction = 8;
+  optional string visibility = 9;
+  repeated string tags = 10;
+  bool update_tags = 11;
+  optional string steps_json = 12;
+  optional string graph_json = 13;
+}
+
+message DeleteWorkflowRequest {
+  string id = 1;
+}
+
+message CloneWorkflowRequest {
+  string source_id = 1;
+  string new_name = 2;
+  string owner = 3;
+}
+
+service WorkflowService {
+  rpc CreateWorkflow(CreateWorkflowRequest) returns (WorkflowMsg);
+  rpc GetWorkflow(GetWorkflowRequest) returns (WorkflowMsg);
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc UpdateWorkflow(UpdateWorkflowRequest) returns (WorkflowMsg);
+  rpc DeleteWorkflow(DeleteWorkflowRequest) returns (DeleteResponse);
+  rpc CloneWorkflow(CloneWorkflowRequest) returns (WorkflowMsg);
+}
+
+// ============================================================================
+// 4. ConnectionService
+// ============================================================================
+
+message ConnectionMsg {
+  string id = 1;
+  string name = 2;
+  string conn_type = 3;
+  string description = 4;
+  string owner = 5;
+  string visibility = 6;
+  repeated string tags = 7;
+  string config_json = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message CreateConnectionRequest {
+  string id = 1;
+  string name = 2;
+  string conn_type = 3;
+  string description = 4;
+  string owner = 5;
+  string visibility = 6;
+  repeated string tags = 7;
+  string config_json = 8;
+}
+
+message GetConnectionRequest {
+  string id = 1;
+}
+
+message ListConnectionsRequest {
+  string conn_type = 1;
+}
+
+message ListConnectionsResponse {
+  repeated ConnectionMsg connections = 1;
+}
+
+message UpdateConnectionRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string conn_type = 3;
+  optional string description = 4;
+  optional string owner = 5;
+  optional string visibility = 6;
+  repeated string tags = 7;
+  bool update_tags = 8;
+  optional string config_json = 9;
+}
+
+message DeleteConnectionRequest {
+  string id = 1;
+}
+
+service ConnectionService {
+  rpc CreateConnection(CreateConnectionRequest) returns (ConnectionMsg);
+  rpc GetConnection(GetConnectionRequest) returns (ConnectionMsg);
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+  rpc UpdateConnection(UpdateConnectionRequest) returns (ConnectionMsg);
+  rpc DeleteConnection(DeleteConnectionRequest) returns (DeleteResponse);
+}
+
+// ============================================================================
+// 5. RegistryService (Proto Files & Trusted CA Certificates)
+// ============================================================================
+
+message ProtoFileMsg {
+  string id = 1;
+  string name = 2;
+  string content = 3;
+  string owner = 4;
+  string visibility = 5;
+  repeated string tags = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message UploadProtoRequest {
+  string id = 1;
+  string name = 2;
+  string content = 3;
+  string owner = 4;
+  string visibility = 5;
+  repeated string tags = 6;
+}
+
+message GetProtoRequest {
+  string id = 1;
+}
+
+message ListProtosRequest {
+  string query = 1;
+}
+
+message ListProtosResponse {
+  repeated ProtoFileMsg protos = 1;
+}
+
+message UpdateProtoRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string content = 3;
+  optional string owner = 4;
+  optional string visibility = 5;
+  repeated string tags = 6;
+  bool update_tags = 7;
+}
+
+message DeleteProtoRequest {
+  string id = 1;
+}
+
+message CaCertMsg {
+  string id = 1;
+  string name = 2;
+  string content = 3;
+  string owner = 4;
+  string visibility = 5;
+  repeated string tags = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message UploadCaCertRequest {
+  string id = 1;
+  string name = 2;
+  string content = 3;
+  string owner = 4;
+  string visibility = 5;
+  repeated string tags = 6;
+}
+
+message GetCaCertRequest {
+  string id = 1;
+}
+
+message ListCaCertsRequest {}
+
+message ListCaCertsResponse {
+  repeated CaCertMsg certs = 1;
+}
+
+message UpdateCaCertRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string content = 3;
+  optional string owner = 4;
+  optional string visibility = 5;
+  repeated string tags = 6;
+  bool update_tags = 7;
+}
+
+message DeleteCaCertRequest {
+  string id = 1;
+}
+
+service RegistryService {
+  rpc UploadProto(UploadProtoRequest) returns (ProtoFileMsg);
+  rpc GetProto(GetProtoRequest) returns (ProtoFileMsg);
+  rpc ListProtos(ListProtosRequest) returns (ListProtosResponse);
+  rpc UpdateProto(UpdateProtoRequest) returns (ProtoFileMsg);
+  rpc DeleteProto(DeleteProtoRequest) returns (DeleteResponse);
+
+  rpc UploadCaCert(UploadCaCertRequest) returns (CaCertMsg);
+  rpc GetCaCert(GetCaCertRequest) returns (CaCertMsg);
+  rpc ListCaCerts(ListCaCertsRequest) returns (ListCaCertsResponse);
+  rpc UpdateCaCert(UpdateCaCertRequest) returns (CaCertMsg);
+  rpc DeleteCaCert(DeleteCaCertRequest) returns (DeleteResponse);
+}
+
+// ============================================================================
+// 6. DatabaseService (Databases, Meta Tags & SurrealQL Execution)
+// ============================================================================
+
+message DatabaseMetaMsg {
+  string name = 1;
+  string owner = 2;
+  repeated string tags = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message ListDatabasesRequest {}
+
+message ListDatabasesResponse {
+  repeated DatabaseMetaMsg databases = 1;
+}
+
+message CreateDatabaseRequest {
+  string name = 1;
+  string owner = 2;
+  repeated string tags = 3;
+}
+
+message UpdateDatabaseMetaRequest {
+  string name = 1;
+  optional string owner = 2;
+  repeated string tags = 3;
+}
+
+message ExecuteQueryRequest {
+  string query = 1;
+  string vars_json = 2;
+}
+
+message ExecuteQueryResponse {
+  string result_json = 1;
+}
+
+service DatabaseService {
+  rpc ListDatabases(ListDatabasesRequest) returns (ListDatabasesResponse);
+  rpc CreateDatabase(CreateDatabaseRequest) returns (DatabaseMetaMsg);
+  rpc UpdateDatabaseMeta(UpdateDatabaseMetaRequest) returns (DatabaseMetaMsg);
+  rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
+}

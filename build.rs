@@ -5,11 +5,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_var("PROTOC", protoc_path);
     }
 
-    println!("cargo:rerun-if-changed=proto/solid/v1/user_service.proto");
+    println!("cargo:rerun-if-changed=proto/solid/v1/solid.proto");
     tonic_prost_build::configure()
         .build_server(true)
         .build_client(true)
-        .compile_protos(&["proto/solid/v1/user_service.proto"], &["proto"])?;
+        .compile_protos(&["proto/solid/v1/solid.proto"], &["proto"])?;
 
     Ok(())
 }
