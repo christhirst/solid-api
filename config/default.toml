@@ -1,0 +1,10 @@
+[server]
+http_addr = "0.0.0.0:8080"
+grpc_addr = "0.0.0.0:50052"
+
+[surrealdb]
+endpoint = "wss://app.ux-ti.com/rpc"
+namespace = "solidflow"
+database = "main"
+username = "solid"
+password = "sol1d"
