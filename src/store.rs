@@ -190,6 +190,8 @@ impl Store {
             group_grants: Vec::new(),
             disabled_groups: Vec::new(),
             disable_owner_bypass: false,
+            last_jwt_claims: None,
+            last_jwt_header: None,
             created_at: Some(now.clone()),
             updated_at: now,
         };
@@ -384,6 +386,7 @@ impl Store {
             capabilities,
             group_grants: claims,
             is_admin,
+            last_jwt_claims: user.last_jwt_claims,
         })
     }
 

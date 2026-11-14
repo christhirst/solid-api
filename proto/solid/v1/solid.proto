@@ -36,6 +36,7 @@ message UserProfileMsg {
   bool disable_owner_bypass = 11;
   string created_at = 12;
   string updated_at = 13;
+  string last_jwt_claims_json = 14;
 }
 
 message GroupNamespaceMsg {
@@ -80,6 +81,7 @@ message EffectiveAccessContextMsg {
   PlatformCapabilitiesMsg capabilities = 7;
   repeated string group_grants = 8;
   bool is_admin = 9;
+  string last_jwt_claims_json = 10;
 }
 
 message DbUserMsg {

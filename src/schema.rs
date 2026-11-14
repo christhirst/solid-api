@@ -19,7 +19,21 @@ DEFINE INDEX IF NOT EXISTS dashboard_public_url ON dashboard FIELDS namespace, s
 DEFINE INDEX IF NOT EXISTS group_member_idx ON group_member FIELDS group, username UNIQUE;
 "#;
 
+pub const AUTHZEN_PROTO_SCHEMA: &str = include_str!("../proto/authzen/v1/authzen.proto");
+
 pub async fn ensure_schema(db: &Surreal<Any>) -> Result<(), AppError> {
     db.query(INIT_SCHEMA_SQL).await?.check()?;
+    let _ = db
+        .query(
+            "UPSERT proto_file:authzen MERGE {
+                name: 'authzen.proto',
+                content: $content,
+                owner: 'anonymous',
+                visibility: 'public',
+                tags: ['public', 'authzen']
+            };",
+        )
+        .bind(("content", AUTHZEN_PROTO_SCHEMA))
+        .await;
     Ok(())
 }

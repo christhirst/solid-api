@@ -210,6 +210,18 @@ pub struct UserProfile {
     pub disabled_groups: Vec<String>,
     #[serde(rename = "disableOwnerBypass", default)]
     pub disable_owner_bypass: bool,
+    #[serde(
+        rename = "lastJwtClaims",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_jwt_claims: Option<serde_json::Value>,
+    #[serde(
+        rename = "lastJwtHeader",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_jwt_header: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
     #[serde(default)]
@@ -270,6 +282,8 @@ pub struct EffectiveAccessContext {
     pub capabilities: PlatformCapabilities,
     pub group_grants: Vec<String>,
     pub is_admin: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_jwt_claims: Option<serde_json::Value>,
 }
 
 // ============================================================================

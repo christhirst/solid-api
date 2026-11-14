@@ -61,6 +61,11 @@ impl From<UserProfile> for UserProfileMsg {
             disable_owner_bypass: u.disable_owner_bypass,
             created_at: u.created_at.unwrap_or_default(),
             updated_at: u.updated_at,
+            last_jwt_claims_json: u
+                .last_jwt_claims
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok())
+                .unwrap_or_default(),
         }
     }
 }
@@ -124,6 +129,11 @@ impl From<EffectiveAccessContext> for EffectiveAccessContextMsg {
             capabilities: Some(ctx.capabilities.into()),
             group_grants: ctx.group_grants,
             is_admin: ctx.is_admin,
+            last_jwt_claims_json: ctx
+                .last_jwt_claims
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok())
+                .unwrap_or_default(),
         }
     }
 }
