@@ -589,6 +589,11 @@ impl UserProvisioningService for GrpcSolidService {
                 } else {
                     Some(req.roles)
                 },
+                level: if req.level.is_empty() {
+                    None
+                } else {
+                    Some(req.level)
+                },
             })
             .await
             .map_err(Status::from)?;
@@ -622,9 +627,14 @@ impl UserProvisioningService for GrpcSolidService {
         request: Request<RemoveDbUserRequest>,
     ) -> Result<Response<DeleteResponse>, Status> {
         let req = request.into_inner();
+        let level = if req.level.is_empty() {
+            None
+        } else {
+            Some(req.level.as_str())
+        };
         let removed = self
             .store
-            .remove_db_user(&req.username)
+            .remove_db_user_with_level(&req.username, level)
             .await
             .map_err(Status::from)?;
 

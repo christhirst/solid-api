@@ -21,6 +21,8 @@ pub struct SurrealDbConfig {
     pub database: String,
     pub username: Option<String>,
     pub password: Option<String>,
+    #[serde(default)]
+    pub auth_level: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -35,6 +37,7 @@ impl Default for AppConfig {
                 database: "main".to_string(),
                 username: Some("solid".to_string()),
                 password: Some("sol1d".to_string()),
+                auth_level: Some("auto".to_string()),
             },
         }
     }
@@ -78,6 +81,9 @@ impl AppConfig {
         }
         if let Ok(pass) = std::env::var("SURREALDB_PASS") {
             builder = builder.set_override("surrealdb.password", pass)?;
+        }
+        if let Ok(level) = std::env::var("SURREALDB_AUTH_LEVEL") {
+            builder = builder.set_override("surrealdb.auth_level", level)?;
         }
 
         // Server port override

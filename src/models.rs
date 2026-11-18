@@ -471,6 +471,8 @@ pub struct ProvisionDbUserRequest {
     pub username: String,
     pub password: String,
     pub roles: Option<Vec<String>>,
+    #[serde(default)]
+    pub level: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

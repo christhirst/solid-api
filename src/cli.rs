@@ -26,6 +26,13 @@ pub struct Cli {
     #[arg(long, global = true, help = "SurrealDB password")]
     pub password: Option<String>,
 
+    #[arg(
+        long,
+        global = true,
+        help = "SurrealDB user auth level (auto, database, namespace, root)"
+    )]
+    pub auth_level: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -238,7 +245,7 @@ pub enum GroupCommands {
 
 #[derive(Debug, Subcommand)]
 pub enum DbUserCommands {
-    /// Provision a SurrealDB database-level user
+    /// Provision a SurrealDB user (ON DATABASE | NAMESPACE | ROOT)
     Provision {
         #[arg(long, help = "DB Username")]
         username: String,
@@ -252,15 +259,29 @@ pub enum DbUserCommands {
             help = "Comma-separated roles (e.g. OWNER,EDITOR,VIEWER)"
         )]
         roles: String,
+
+        #[arg(
+            long,
+            default_value = "DATABASE",
+            help = "User scope level (DATABASE, NAMESPACE, ROOT)"
+        )]
+        level: String,
     },
 
     /// List SurrealDB database users
     List,
 
-    /// Remove a SurrealDB database user
+    /// Remove a SurrealDB user
     Remove {
         #[arg(help = "DB Username")]
         username: String,
+
+        #[arg(
+            long,
+            default_value = "DATABASE",
+            help = "User scope level (DATABASE, NAMESPACE, ROOT)"
+        )]
+        level: String,
     },
 }
 

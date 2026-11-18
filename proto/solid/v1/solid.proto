@@ -178,6 +178,7 @@ message ProvisionDbUserRequest {
   string username = 1;
   string password = 2;
   repeated string roles = 3;
+  string level = 4;
 }
 
 message ListDbUsersRequest {}
@@ -188,6 +189,7 @@ message ListDbUsersResponse {
 
 message RemoveDbUserRequest {
   string username = 1;
+  string level = 2;
 }
 
 service UserProvisioningService {

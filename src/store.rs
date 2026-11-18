@@ -1,7 +1,7 @@
 use chrono::Utc;
 use surrealdb::Surreal;
 use surrealdb::engine::any::{Any, connect};
-use surrealdb::opt::auth::{Database, Root};
+use surrealdb::opt::auth::{Database, Namespace, Root};
 use uuid::Uuid;
 
 use crate::config::SurrealDbConfig;
@@ -29,15 +29,58 @@ impl Store {
         if let (Some(username), Some(password)) = (&cfg.username, &cfg.password)
             && !username.is_empty()
         {
-            if username == "root" {
-                let _ = db
+            let level = cfg
+                .auth_level
+                .as_deref()
+                .unwrap_or("auto")
+                .trim()
+                .to_lowercase();
+
+            if level == "root" || (level == "auto" && username == "root") {
+                if db
                     .signin(Root {
                         username: username.clone(),
                         password: password.clone(),
                     })
+                    .await
+                    .is_err()
+                {
+                    let _ = db
+                        .signin(Namespace {
+                            namespace: cfg.namespace.clone(),
+                            username: username.clone(),
+                            password: password.clone(),
+                        })
+                        .await;
+                }
+            } else if level == "namespace" || level == "ns" {
+                let ns_auth = db
+                    .signin(Namespace {
+                        namespace: cfg.namespace.clone(),
+                        username: username.clone(),
+                        password: password.clone(),
+                    })
                     .await;
+                if ns_auth.is_err() {
+                    let db_auth = db
+                        .signin(Database {
+                            namespace: cfg.namespace.clone(),
+                            database: cfg.database.clone(),
+                            username: username.clone(),
+                            password: password.clone(),
+                        })
+                        .await;
+                    if db_auth.is_err() {
+                        let _ = db
+                            .signin(Root {
+                                username: username.clone(),
+                                password: password.clone(),
+                            })
+                            .await;
+                    }
+                }
             } else {
-                // Try scoped Database auth first, then fallback to Root
+                // "database" or "auto": try Database -> Namespace -> Root
                 let db_auth = db
                     .signin(Database {
                         namespace: cfg.namespace.clone(),
@@ -48,12 +91,22 @@ impl Store {
                     .await;
 
                 if db_auth.is_err() {
-                    let _ = db
-                        .signin(Root {
+                    let ns_auth = db
+                        .signin(Namespace {
+                            namespace: cfg.namespace.clone(),
                             username: username.clone(),
                             password: password.clone(),
                         })
                         .await;
+
+                    if ns_auth.is_err() {
+                        let _ = db
+                            .signin(Root {
+                                username: username.clone(),
+                                password: password.clone(),
+                            })
+                            .await;
+                    }
                 }
             }
         }
@@ -643,9 +696,22 @@ impl Store {
 
         let roles = req.roles.unwrap_or_else(|| vec!["OWNER".to_string()]);
         let roles_sql = roles.join(", ");
+        let target_level = match req
+            .level
+            .as_deref()
+            .unwrap_or("DATABASE")
+            .trim()
+            .to_uppercase()
+            .as_str()
+        {
+            "NAMESPACE" | "NS" => "NAMESPACE",
+            "ROOT" => "ROOT",
+            _ => "DATABASE",
+        };
 
-        let sql =
-            format!("DEFINE USER {username} ON DATABASE PASSWORD $password ROLES {roles_sql};");
+        let sql = format!(
+            "DEFINE USER {username} ON {target_level} PASSWORD $password ROLES {roles_sql};"
+        );
 
         self.db
             .query(sql)
@@ -656,39 +722,43 @@ impl Store {
         Ok(DbUserRecord {
             username: username.to_string(),
             roles,
-            level: "DATABASE".to_string(),
+            level: target_level.to_string(),
         })
     }
 
     pub async fn list_db_users(&self) -> Result<Vec<DbUserRecord>, AppError> {
-        let mut resp = self.db.query("INFO FOR DB;").await?;
-        let info_val: Option<serde_json::Value> = resp.take(0)?;
-
         let mut results = Vec::new();
-        if let Some(info) = info_val
-            && let Some(users_map) = info.get("users").and_then(|u| u.as_object())
-        {
-            for (name, def) in users_map {
-                let def_str = def.as_str().unwrap_or_default();
-                let mut roles = Vec::new();
-                if def_str.contains("OWNER") {
-                    roles.push("OWNER".to_string());
-                }
-                if def_str.contains("EDITOR") {
-                    roles.push("EDITOR".to_string());
-                }
-                if def_str.contains("VIEWER") {
-                    roles.push("VIEWER".to_string());
-                }
-                if roles.is_empty() {
-                    roles.push("CUSTOM".to_string());
-                }
 
-                results.push(DbUserRecord {
-                    username: name.clone(),
-                    roles,
-                    level: "DATABASE".to_string(),
-                });
+        for (info_sql, level_label) in [
+            ("INFO FOR DB;", "DATABASE"),
+            ("INFO FOR NS;", "NAMESPACE"),
+        ] {
+            if let Ok(mut resp) = self.db.query(info_sql).await
+                && let Ok(Some(info)) = resp.take::<Option<serde_json::Value>>(0)
+                && let Some(users_map) = info.get("users").and_then(|u| u.as_object())
+            {
+                for (name, def) in users_map {
+                    let def_str = def.as_str().unwrap_or_default();
+                    let mut roles = Vec::new();
+                    if def_str.contains("OWNER") {
+                        roles.push("OWNER".to_string());
+                    }
+                    if def_str.contains("EDITOR") {
+                        roles.push("EDITOR".to_string());
+                    }
+                    if def_str.contains("VIEWER") {
+                        roles.push("VIEWER".to_string());
+                    }
+                    if roles.is_empty() {
+                        roles.push("CUSTOM".to_string());
+                    }
+
+                    results.push(DbUserRecord {
+                        username: name.clone(),
+                        roles,
+                        level: level_label.to_string(),
+                    });
+                }
             }
         }
 
@@ -696,6 +766,14 @@ impl Store {
     }
 
     pub async fn remove_db_user(&self, username: &str) -> Result<bool, AppError> {
+        self.remove_db_user_with_level(username, None).await
+    }
+
+    pub async fn remove_db_user_with_level(
+        &self,
+        username: &str,
+        level: Option<&str>,
+    ) -> Result<bool, AppError> {
         let clean = username.trim();
         if clean.is_empty() {
             return Err(AppError::InvalidArgument(
@@ -703,7 +781,13 @@ impl Store {
             ));
         }
 
-        let sql = format!("REMOVE USER {clean} ON DATABASE;");
+        let target_level = match level.unwrap_or("DATABASE").trim().to_uppercase().as_str() {
+            "NAMESPACE" | "NS" => "NAMESPACE",
+            "ROOT" => "ROOT",
+            _ => "DATABASE",
+        };
+
+        let sql = format!("REMOVE USER {clean} ON {target_level};");
         self.db.query(sql).await?.check()?;
         Ok(true)
     }

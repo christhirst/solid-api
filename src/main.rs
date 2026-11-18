@@ -52,6 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(password) = cli.password {
         config.surrealdb.password = Some(password);
     }
+    if let Some(auth_level) = cli.auth_level {
+        config.surrealdb.auth_level = Some(auth_level);
+    }
 
     let store = Store::connect(&config.surrealdb).await?;
     let command = cli
@@ -199,6 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 username,
                 password,
                 roles,
+                level,
             } => {
                 let roles_vec: Vec<String> =
                     roles.split(',').map(|s| s.trim().to_uppercase()).collect();
@@ -207,6 +211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         username,
                         password,
                         roles: Some(roles_vec),
+                        level: Some(level),
                     })
                     .await?;
                 println!("{}", serde_json::to_string_pretty(&user)?);
@@ -215,9 +220,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let users = store.list_db_users().await?;
                 println!("{}", serde_json::to_string_pretty(&users)?);
             }
-            DbUserCommands::Remove { username } => {
-                store.remove_db_user(&username).await?;
-                println!("Database user '{username}' removed.");
+            DbUserCommands::Remove { username, level } => {
+                store.remove_db_user_with_level(&username, Some(&level)).await?;
+                println!("Database user '{username}' removed (level: {level}).");
             }
         },
         Commands::Dashboard { cmd } => match cmd {

@@ -319,11 +319,13 @@ async fn execute_tool(store: &Store, name: &str, args: Value) -> Result<Value, A
             let username = req_str_arg(&args, "username")?;
             let password = req_str_arg(&args, "password")?;
             let roles = opt_string_vec_arg(&args, "roles");
+            let level = str_arg(&args, "level");
             let db_user = store
                 .provision_db_user(ProvisionDbUserRequest {
                     username,
                     password,
                     roles,
+                    level,
                 })
                 .await?;
             Ok(serde_json::to_value(db_user)?)
@@ -732,14 +734,15 @@ fn mcp_tools_catalog() -> Value {
         },
         {
             "name": "provision_db_user",
-            "description": "Provision a native SurrealDB database-level user (DEFINE USER ... ON DATABASE)",
+            "description": "Provision a native SurrealDB user (DEFINE USER ... ON DATABASE | NAMESPACE | ROOT)",
             "inputSchema": {
                 "type": "object",
                 "required": ["username", "password"],
                 "properties": {
                     "username": { "type": "string" },
                     "password": { "type": "string" },
-                    "roles": { "type": "array", "items": { "type": "string" } }
+                    "roles": { "type": "array", "items": { "type": "string" } },
+                    "level": { "type": "string", "enum": ["DATABASE", "NAMESPACE", "ROOT"] }
                 }
             }
         },
